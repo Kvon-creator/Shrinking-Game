@@ -41,19 +41,30 @@ seq('hitB', 2, [4], 'air')
 seq('ko', 2, [5], 'flat')
 
 HAZ_SCALE = 0.6
-# name: (index, crop box in sprite px or None)
+# name: (index, crop box in sprite px or None, anchor in cropped sprite px or None, blanking fn or None)
+def _no_streak(a):          # pendulum: drop the motion streak beside the chain
+    a[:122, 100:, 3] = 0
+def _no_beam(a):            # ceiling turret: drop the painted laser beam (the game draws its own)
+    a[118:, :, 3] = 0
+    a[20:, 140:, 3] = 0
 HAZ = {
-    'spikeWall': (4, None),
-    'saw': (5, None),
-    'crusher': (13, None),
-    'laser': (9, (0, 0, 74, 109)),
-    'fireball': (16, None),
-    'icicles': (3, None),
-    'icicle': (3, (8, 22, 62, 151)),
-    'spikedBall': (15, None),
+    'spikeWall': (4, None, None, None),
+    'spikeFloor': (1, None, None, None),
+    'saw': (5, None, None, None),
+    'sawArm': (6, (0, 0, 262, 156), (85, 85), None),
+    'pendulum': (7, None, (8, 3), _no_streak),
+    'crusher': (13, None, None, None),
+    'laser': (9, (0, 0, 74, 109), None, None),
+    'cturret': (10, None, (100, 2), _no_beam),
+    'gateL': (11, (0, 0, 62, 156), None, None),
+    'gateR': (11, (248, 0, 310, 156), None, None),
+    'barricade': (12, None, None, None),
+    'acid': (14, None, None, None),
+    'fireball': (16, None, None, None),
+    'icicles': (3, None, None, None),
+    'icicle': (3, (8, 22, 62, 151), None, None),
 }
 
-# wide wall panels in figure 5: x0, x1 (y is 574..729 for all)
 # order must match ZONE_INFO in index.html
 WALLS = {'ruin': (168, 346), 'iron': (806, 1014), 'ice': (470, 681), 'crystal': (1140, 1348)}
 WALL_W, WALL_H = 208, 156
@@ -88,12 +99,14 @@ def main():
     sprites['hero'] = (hero, anchor(hero, 'ground'))
 
     hz = hazard_sheet()[0]
-    for name, (ix, crop) in HAZ.items():
+    for name, (ix, crop, anc, blank) in HAZ.items():
         im = hz[ix][1]
         if crop:
             im = im.crop(crop)
+        if blank:
+            arr = np.asarray(im).copy(); blank(arr); im = Image.fromarray(arr, 'RGBA')
         im = im.resize((round(im.width * HAZ_SCALE), round(im.height * HAZ_SCALE)), Image.LANCZOS)
-        sprites[name] = (im, (im.width / 2, im.height / 2))
+        sprites[name] = (im, (anc[0] * HAZ_SCALE, anc[1] * HAZ_SCALE) if anc else (im.width / 2, im.height / 2))
 
     # shelf packing
     W, pad = 1536, 2
